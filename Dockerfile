@@ -17,4 +17,6 @@ COPY bot ./bot
 
 RUN pip install --upgrade pip && pip install .
 
-CMD ["python", "-m", "bot.main"]
+EXPOSE 8080
+
+CMD ["uvicorn", "bot.server:app", "--host", "0.0.0.0", "--port", "8080"]
