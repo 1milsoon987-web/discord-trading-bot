@@ -41,18 +41,21 @@ def build_plan(idea: TradeIdea, atr_multiplier: float = 1.2) -> TradePlan | None
         risk = entry - stop_loss
         if risk <= 0:
             return None
-        # TPs: liquidity zones above, falling back to 1R/2R/3R multiples
+        # TPs: liquidity zones above filtered by minimum R distance, fallback to R multiples
         liq_targets = sorted(
             [z.price for z in idea.liquidity.zones if z.price > entry and z.direction == "buyside"]
         )
+        min_r = [1.5, 2.5, 3.5]
         tps: list[float] = []
-        for target in liq_targets[:3]:
-            tps.append(target)
-        # Ensure at least 3 TPs at 2R / 3R / 4R
-        while len(tps) < 3:
-            multiplier = len(tps) + 2
-            tps.append(entry + risk * multiplier)
-        tps = tps[:3]
+        used: set[float] = set()
+        for min_mult in min_r:
+            min_price = entry + risk * min_mult
+            picks = [t for t in liq_targets if t >= min_price and t not in used]
+            if picks:
+                tps.append(picks[0])
+                used.add(picks[0])
+            else:
+                tps.append(min_price)
         rr1 = (tps[0] - entry) / risk
     else:
         entry = last
@@ -73,13 +76,17 @@ def build_plan(idea: TradeIdea, atr_multiplier: float = 1.2) -> TradePlan | None
             ],
             reverse=True,
         )
+        min_r = [1.5, 2.5, 3.5]
         tps = []
-        for target in liq_targets[:3]:
-            tps.append(target)
-        while len(tps) < 3:
-            multiplier = len(tps) + 2
-            tps.append(entry - risk * multiplier)
-        tps = tps[:3]
+        used: set[float] = set()
+        for min_mult in min_r:
+            max_price = entry - risk * min_mult
+            picks = [t for t in liq_targets if t <= max_price and t not in used]
+            if picks:
+                tps.append(picks[0])
+                used.add(picks[0])
+            else:
+                tps.append(max_price)
         rr1 = (entry - tps[0]) / risk
 
     return TradePlan(entry=entry, stop_loss=stop_loss, take_profits=tps, rr_to_tp1=rr1)
