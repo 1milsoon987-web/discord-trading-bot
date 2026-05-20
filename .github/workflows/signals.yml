@@ -1,0 +1,72 @@
+name: Trading signals
+
+on:
+  workflow_dispatch:
+    inputs:
+      label:
+        description: "Label shown in the daily-brief title"
+        required: false
+        default: "Manual run"
+  schedule:
+    # All times are UTC. Africa/Casablanca = UTC+1 (no DST since 2019).
+    # Daily brief at 07:00 Casablanca = 06:00 UTC
+    - cron: "0 6 * * *"
+    # Asia session open: 00:00 UTC
+    - cron: "0 0 * * *"
+    # London session open: 07:00 UTC
+    - cron: "0 7 * * *"
+    # New York session open: 12:00 UTC
+    - cron: "0 12 * * *"
+
+concurrency:
+  group: trading-signals
+  cancel-in-progress: false
+
+jobs:
+  generate-and-post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+      TIMEZONE: Africa/Casablanca
+      MIN_CONFIDENCE_SCORE: "65"
+      LOG_LEVEL: INFO
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Resolve run label
+        id: label
+        env:
+          INPUT_LABEL: ${{ github.event.inputs.label }}
+          SCHEDULE_CRON: ${{ github.event.schedule }}
+        run: |
+          if [ -n "$INPUT_LABEL" ]; then
+            label="$INPUT_LABEL"
+          else
+            case "$SCHEDULE_CRON" in
+              "0 6 * * *")  label="Daily brief (07:00 Casablanca)" ;;
+              "0 0 * * *")  label="Asia session open" ;;
+              "0 7 * * *")  label="London session open" ;;
+              "0 12 * * *") label="New York session open" ;;
+              *)            label="Scheduled run" ;;
+            esac
+          fi
+          echo "value=$label" >> "$GITHUB_OUTPUT"
+
+      - name: Generate signals and post to Discord webhook
+        run: |
+          python -m bot.main --webhook --label "${{ steps.label.outputs.value }}"

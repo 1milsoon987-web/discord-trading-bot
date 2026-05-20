@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # Discord
     discord_bot_token: str = Field(default="", description="Discord bot token")
     discord_signal_channel_id: int = Field(default=0, description="Channel ID for signals")
+    discord_webhook_url: str = Field(
+        default="",
+        description="Discord webhook URL for one-shot posting (GitHub Actions mode)",
+    )
 
     # Data providers
     twelvedata_api_key: str = Field(default="", description="TwelveData API key (free tier ok)")

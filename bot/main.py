@@ -11,6 +11,7 @@ from bot.data import BinanceClient, NewsClient, TwelveDataClient
 from bot.discord_client import TradingBot
 from bot.scheduler import schedule_jobs
 from bot.signals.generator import generate_all_signals
+from bot.signals.webhook import post_signals_to_webhook
 from bot.utils.logger import logger, setup_logging
 
 
@@ -42,8 +43,15 @@ def _signal_to_dict(sig) -> dict:
     }
 
 
-async def run_once(dry_run: bool) -> None:
-    """Run a single signal generation pass and either post or print results."""
+async def run_once(dry_run: bool, *, webhook: bool = False, label: str | None = None) -> None:
+    """Run a single signal generation pass and post / print results.
+
+    Modes:
+    - dry_run=True: print signal JSON to stdout.
+    - webhook=True: post via the Discord webhook URL (no bot token needed).
+    - otherwise: start the persistent bot, post the daily brief, and shut down.
+    """
+    settings = get_settings()
     binance = BinanceClient()
     td = TwelveDataClient()
     news = NewsClient()
@@ -52,6 +60,13 @@ async def run_once(dry_run: bool) -> None:
         logger.info(f"Generated {len(signals)} signal(s)")
         if dry_run:
             print(json.dumps([_signal_to_dict(s) for s in signals], indent=2))
+            return
+        if webhook:
+            if not settings.discord_webhook_url:
+                raise RuntimeError("DISCORD_WEBHOOK_URL is not set")
+            await post_signals_to_webhook(
+                signals, settings.discord_webhook_url, label=label
+            )
             return
         bot = TradingBot()
 
@@ -108,12 +123,28 @@ def main() -> None:
         action="store_true",
         help="Generate signals once and exit (skip scheduling)",
     )
+    parser.add_argument(
+        "--webhook",
+        action="store_true",
+        help="Post via Discord webhook (no bot token) - implies --once",
+    )
+    parser.add_argument(
+        "--label",
+        default=None,
+        help="Optional label added to the daily-brief title (e.g. 'Asia session')",
+    )
     args = parser.parse_args()
 
     setup_logging()
 
-    if args.once or args.dry_run:
-        asyncio.run(run_once(dry_run=args.dry_run))
+    if args.webhook or args.once or args.dry_run:
+        asyncio.run(
+            run_once(
+                dry_run=args.dry_run,
+                webhook=args.webhook,
+                label=args.label,
+            )
+        )
     else:
         asyncio.run(run_forever())
 

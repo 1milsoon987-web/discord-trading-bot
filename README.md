@@ -34,9 +34,26 @@ cp .env.example .env
 # 3. Smoke test (no Discord, prints signals to stdout)
 python -m bot.main --dry-run --once
 
-# 4. Run for real
+# 4. Run for real (persistent bot mode)
 python -m bot.main
+
+# 5. Alternative: post once via webhook (used by GitHub Actions cron)
+python -m bot.main --webhook --label "Manual run"
 ```
+
+## Hosting with GitHub Actions (free, no card)
+
+The repository ships with `.github/workflows/signals.yml`. It runs every Asia /
+London / New York session open plus the daily Casablanca brief and posts to a
+Discord webhook — no always-on server needed.
+
+1. In Discord, **Channel Settings → Integrations → Webhooks → New Webhook**
+   and copy the URL.
+2. In GitHub, **Settings → Secrets and variables → Actions** and add:
+   - `DISCORD_WEBHOOK_URL` (required)
+   - `TWELVEDATA_API_KEY` (optional, enables FX/metals)
+3. Trigger a one-off run from the **Actions** tab → *Trading signals* →
+   *Run workflow* to confirm the wiring before scheduled runs kick in.
 
 ## Architecture
 
