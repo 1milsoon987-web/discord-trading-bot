@@ -9,10 +9,10 @@ on:
         default: "Manual run"
   schedule:
     # All times are UTC. Africa/Algiers = UTC+1 (no DST).
-    # London session open: 07:00 UTC = 08:00 Algiers
-    - cron: "0 7 * * *"
-    # New York session open: 12:00 UTC = 13:00 Algiers
-    - cron: "0 12 * * *"
+    # London session open: 06:00 UTC = 07:00 Algiers
+    - cron: "0 6 * * *"
+    # New York session open: 13:30 UTC = 14:30 Algiers
+    - cron: "30 13 * * *"
 
 concurrency:
   group: trading-signals
@@ -54,9 +54,9 @@ jobs:
             label="$INPUT_LABEL"
           else
             case "$SCHEDULE_CRON" in
-              "0 7 * * *")  label="London session open (08:00 Algiers)" ;;
-              "0 12 * * *") label="New York session open (13:00 Algiers)" ;;
-              *)            label="Scheduled run" ;;
+              "0 6 * * *")   label="London session open (07:00 Algiers)" ;;
+              "30 13 * * *") label="New York session open (14:30 Algiers)" ;;
+              *)             label="Scheduled run" ;;
             esac
           fi
           echo "value=$label" >> "$GITHUB_OUTPUT"
